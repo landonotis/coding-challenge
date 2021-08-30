@@ -56,35 +56,47 @@ class Block {
 	/**
 	 * Renders the block.
 	 *
-	 * @param array    $attributes The attributes for the block.
-	 * @param string   $content    The block content, if any.
-	 * @param WP_Block $block      The instance of this block.
+	 * @param array $attributes The attributes for the block.
+	 * @param string $content The block content, if any.
+	 * @param WP_Block $block The instance of this block.
+	 *
 	 * @return string The markup of the block.
 	 */
 	public function render_callback( $attributes, $content, $block ) {
+		$post_id    = get_the_ID();
 		$post_types = get_post_types( [ 'public' => true ] );
 		$class_name = $attributes['className'];
 		ob_start();
 
 		?>
-		<div class="<?php echo $class_name; ?>">
-			<h2>Post Counts</h2>
+		<div class="<?php echo esc_attr( $class_name ); ?>">
+			<h2><?php _e( 'Post Counts', 'site-counts' ); ?></h2>
 			<?php
 			foreach ( $post_types as $post_type_slug ) :
 				$post_type_object = get_post_type_object( $post_type_slug );
-				$post_count = count(
-					get_posts(
-						[
-							'post_type' => $post_type_slug,
-							'posts_per_page' => -1,
-						]
-					)
-				);
+
+				// Potentially faster than WP_Query if caching enabled.
+				$post_counts = wp_count_posts( $post_type_slug );
+
+				// Can add other post status' to be counted.
+				$post_count = $post_counts->publish;
+
+				// Allows for more complete plurals in post type name.
+				if ( '1' === $post_count ) {
+					$post_type_label = $post_type_object->labels->singular_name;
+				} else {
+					$post_type_label = $post_type_object->labels->name;
+				}
 
 				?>
-				<p><?php echo 'There are ' . $post_count . ' ' . $post_type_object->labels->name . '.'; ?></p>
-			<?php endforeach; ?>
-			<p><?php echo 'The current post ID is ' . $_GET['post_id'] . '.'; ?></p>
+				<p><?php printf( _n( 'There is %d %s.', 'There are %d %s.', $post_count, 'site-counts' ), $post_count, $post_type_label ); ?></p>
+			<?php
+			endforeach;
+
+			if ( ! empty( $post_id ) ) {
+				?>
+				<p><?php printf( __( 'The current post ID is %d.', 'site-counts' ), $post_id ); ?></p>
+			<?php } ?>
 		</div>
 		<?php
 
